@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import Sum
 from .models import Post, Comment, Like, KarmaTransaction
 from .serializers import PostSerializer, CommentSerializer
+from django.shortcuts import render
 
 class PostViewSet(ModelViewSet):
     queryset = Post.objects.all().order_by("-created_at")
@@ -50,3 +51,8 @@ class LeaderboardView(APIView):
                 .annotate(points_sum=Sum("points"))
                 .order_by("-points_sum")[:5])
         return Response(data)
+
+
+def home(request):
+    posts = Post.objects.all().order_by("-created_at")[:10]  # get latest 10 posts
+    return render(request, "feed/home.html", {"posts": posts})

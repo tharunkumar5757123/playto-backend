@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Playto Feed</title>
+</head>
+<body>
+    <h1>Welcome to Playto Feed!</h1>
+    <p>Latest posts:</p>
+    <ul>
+        {% for post in posts %}
+        <li>
+            <strong>{{ post.author.username }}</strong>: {{ post.content }} 
+            (Likes: {{ post.likes.count }})
+        </li>
+        {% empty %}
+        <li>No posts yet.</li>
+        {% endfor %}
+    </ul>
+    <p>Use the API for more: /api/posts/</p>
+</body>
+</html>
