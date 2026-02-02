@@ -9,13 +9,14 @@
     <ul>
         {% for post in posts %}
         <li>
-            <strong>{{ post.author.username }}</strong>: {{ post.content }} 
-            (Likes: {{ post.likes.count }})
+            <strong>{{ post.author.username if post.author else "Unknown" }}</strong>:
+            {{ post.content }} 
+            (Likes: {{ post.like_set.count }})
         </li>
         {% empty %}
         <li>No posts yet.</li>
         {% endfor %}
     </ul>
-    <p>Use the API for more: /api/posts/</p>
+    <p>Use the API for more: <a href="/api/posts/">/api/posts/</a></p>
 </body>
 </html>
