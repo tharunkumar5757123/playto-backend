@@ -1,12 +1,18 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Sum
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+
 from .models import Post, Comment, Like, KarmaTransaction
 from .serializers import PostSerializer, CommentSerializer
-from django.shortcuts import render
+
+
+# ------------------- DRF API -------------------
 
 class PostViewSet(ModelViewSet):
     queryset = Post.objects.all().order_by("-created_at")
@@ -18,11 +24,17 @@ class PostViewSet(ModelViewSet):
         post = self.get_object()
 
         with transaction.atomic():
-            like, created = Like.objects.get_or_create(user=user, post=post, comment=None)
-            if not created:
-                return Response({"detail": "Already liked"}, status=400)
-            KarmaTransaction.objects.create(user=post.author, points=5)
-        return Response({"detail": "Post liked"})
+            like = Like.objects.filter(user=user, post=post, comment=None).first()
+            if like:
+                # User already liked → remove like
+                like.delete()
+                return Response({"detail": "Like removed"})
+            else:
+                # Add new like
+                Like.objects.create(user=user, post=post, comment=None)
+                KarmaTransaction.objects.create(user=post.author, points=5)
+                return Response({"detail": "Post liked"})
+
 
 class CommentViewSet(ModelViewSet):
     queryset = Comment.objects.all().order_by("created_at")
@@ -34,13 +46,15 @@ class CommentViewSet(ModelViewSet):
         comment = self.get_object()
 
         with transaction.atomic():
-            like, created = Like.objects.get_or_create(user=user, post=None, comment=comment)
-            if not created:
-                return Response({"detail": "Already liked"}, status=400)
-            KarmaTransaction.objects.create(user=comment.author, points=1)
-        return Response({"detail": "Comment liked"})
+            like = Like.objects.filter(user=user, post=None, comment=comment).first()
+            if like:
+                like.delete()
+                return Response({"detail": "Like removed"})
+            else:
+                Like.objects.create(user=user, post=None, comment=comment)
+                KarmaTransaction.objects.create(user=comment.author, points=1)
+                return Response({"detail": "Comment liked"})
 
-from rest_framework.views import APIView
 
 class LeaderboardView(APIView):
     def get(self, request):
@@ -53,6 +67,41 @@ class LeaderboardView(APIView):
         return Response(data)
 
 
+# ------------------- Django Views -------------------
+@login_required
 def home(request):
-    posts = Post.objects.all().order_by("-created_at")[:10]  # get latest 10 posts
-    return render(request, "feed/home.html", {"posts": posts})
+    if request.method == "POST":
+        content = request.POST.get("content")
+        if content:
+            Post.objects.create(
+                author=request.user,
+                content=content
+            )
+        return redirect("/")
+
+    posts = Post.objects.all().order_by("-created_at")
+
+    # Get IDs of posts liked by the current user
+    liked_post_ids = Like.objects.filter(user=request.user, post__in=posts).values_list('post_id', flat=True)
+
+    return render(request, "feed/home.html", {
+        "posts": posts,
+        "liked_post_ids": liked_post_ids
+    })
+
+
+@login_required
+def like_post(request, post_id):
+    """
+    Toggle like/unlike for a post from the homepage.
+    """
+    post = get_object_or_404(Post, id=post_id)
+    like = Like.objects.filter(user=request.user, post=post, comment=None).first()
+
+    if like:
+        like.delete()  # Unlike
+    else:
+        Like.objects.create(user=request.user, post=post, comment=None)
+        KarmaTransaction.objects.create(user=post.author, points=5)
+
+    return redirect("/")

@@ -5,18 +5,49 @@
 </head>
 <body>
     <h1>Welcome to Playto Feed!</h1>
-    <p>Latest posts:</p>
+
+    <h3>Create Post</h3>
+    <form method="POST">
+        {% csrf_token %}
+        <textarea name="content" required></textarea><br><br>
+        <button type="submit">Post</button>
+    </form>
+
+    <hr>
+
+    <h3>Latest posts:</h3>
+
     <ul>
         {% for post in posts %}
         <li>
-            <strong>{{ post.author.username if post.author else "Unknown" }}</strong>:
-            {{ post.content }} 
-            (Likes: {{ post.like_set.count }})
+            <strong>
+                {% if post.author %}
+                    {{ post.author.username }}
+                {% else %}
+                    Unknown
+                {% endif %}
+            </strong>:
+            {{ post.content }}
+
+            <br>
+
+            Likes: {{ post.likes.count }}
+
+            <!-- LIKE/UNLIKE FORM -->
+            <form method="POST" action="{% url 'like_post' post.id %}" style="display:inline;">
+                {% csrf_token %}
+                {% if post.id in liked_post_ids %}
+                    <button type="submit">💔 Unlike</button>
+                {% else %}
+                    <button type="submit">❤️ Like</button>
+                {% endif %}
+            </form>
         </li>
+        <br>
         {% empty %}
         <li>No posts yet.</li>
         {% endfor %}
     </ul>
-    <p>Use the API for more: <a href="/api/posts/">/api/posts/</a></p>
+
 </body>
 </html>
